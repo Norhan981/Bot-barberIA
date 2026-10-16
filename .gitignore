@@ -1,4 +1,4 @@
 .env
 venv/
 __pycache__/
-ngrok.exepip freeze > requirements.txt
+ngrok.exe
