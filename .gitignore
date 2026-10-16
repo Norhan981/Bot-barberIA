@@ -2,3 +2,4 @@
 venv/
 __pycache__/
 ngrok.exe
+credenciales-google.json
