@@ -267,7 +267,7 @@ async def responder(chat_id: int, texto: str, nombre_telegram: str) -> str:
 
 
 # ---------- Rutas ----------
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def inicio():
     return {"mensaje": "¡El bot está vivo!"}
 
