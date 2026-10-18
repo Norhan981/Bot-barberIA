@@ -35,16 +35,10 @@ DURACIONES = {  # en minutos
     "corte de pelo y barba": 90,
 }
 DURACION_POR_DEFECTO = 60
-HORA_APERTURA = 8  # 8:00 a.m.
-HORA_CIERRE = 20  # 8:00 p.m.
+HORA_APERTURA = 8   # 8:00 a.m.
+HORA_CIERRE = 20    # 8:00 p.m.
 DIAS_ATENCION = {0, 1, 2, 3, 4}  # lunes (0) a viernes (4)
-SIN_PREFERENCIA = {
-    "",
-    "cualquiera",
-    "cualquier",
-    "cualquier barbero",
-    "el que este libre",
-}
+SIN_PREFERENCIA = {"", "cualquiera", "cualquier", "cualquier barbero", "el que este libre"}
 
 ACTIVA, CANCELADA, ATENDIDA = "Activa", "Cancelada", "Atendida"
 
@@ -85,19 +79,11 @@ def leer_citas() -> list[dict]:
         fila = fila + [""] * (COLUMNAS - len(fila))
         if not fila[7]:  # sin ID = fila vieja o vacía
             continue
-        citas.append(
-            {
-                "fila": numero_fila,
-                "nombre": fila[1],
-                "servicio": fila[2],
-                "barbero": fila[3],
-                "dia": fila[4],
-                "hora": fila[5],
-                "chat_id": fila[6],
-                "id": fila[7],
-                "estado": fila[8],
-            }
-        )
+        citas.append({
+            "fila": numero_fila, "nombre": fila[1], "servicio": fila[2],
+            "barbero": fila[3], "dia": fila[4], "hora": fila[5],
+            "chat_id": fila[6], "id": fila[7], "estado": fila[8],
+        })
     return citas
 
 
@@ -112,9 +98,7 @@ def inicio_y_fin(cita: dict):
     except (ValueError, KeyError):
         return None
     inicio = inicio.replace(tzinfo=ZONA_COLOMBIA)
-    duracion = DURACIONES.get(
-        normalizar(cita.get("servicio", "")), DURACION_POR_DEFECTO
-    )
+    duracion = DURACIONES.get(normalizar(cita.get("servicio", "")), DURACION_POR_DEFECTO)
     return inicio, inicio + timedelta(minutes=duracion)
 
 
@@ -200,11 +184,7 @@ def validar_cita(cita: dict, chat_id: int, citas: list[dict]):
 
     if cita["accion"] == "cancelar":
         if not existente:
-            return (
-                False,
-                "No encontré esa cita para cancelarla. ¿Me dices cuál es?",
-                None,
-            )
+            return False, "No encontré esa cita para cancelarla. ¿Me dices cuál es?", None
         for campo in ("nombre", "servicio", "barbero", "dia", "hora", "id", "fila"):
             cita[campo] = existente[campo]
         return True, "", cita
@@ -228,21 +208,13 @@ def validar_cita(cita: dict, chat_id: int, citas: list[dict]):
 
     # La misma persona no puede tener dos citas que se crucen
     for c in mis_activas:
-        if c["id"] == ignorar or normalizar(c["nombre"]) != normalizar(
-            cita.get("nombre", "")
-        ):
+        if c["id"] == ignorar or normalizar(c["nombre"]) != normalizar(cita.get("nombre", "")):
             continue
         rango_otra = inicio_y_fin(c)
         if rango_otra and inicio < rango_otra[1] and rango_otra[0] < fin:
-            return (
-                False,
-                (
-                    f"{cita['nombre']} ya tiene una cita que se cruza con ese horario "
-                    f"({c['servicio']} con {c['barbero']} a las {hora_bonita(rango_otra[0])}). "
-                    "¿Quieres cambiar esa cita o prefieres otra hora?"
-                ),
-                None,
-            )
+            return False, (f"{cita['nombre']} ya tiene una cita que se cruza con ese horario "
+                           f"({c['servicio']} con {c['barbero']} a las {hora_bonita(rango_otra[0])}). "
+                           "¿Quieres cambiar esa cita o prefieres otra hora?"), None
 
     duracion = int((fin - inicio).total_seconds() // 60)
     barbero = cita.get("barbero", "")
@@ -250,35 +222,21 @@ def validar_cita(cita: dict, chat_id: int, citas: list[dict]):
     if normalizar(barbero) in SIN_PREFERENCIA:
         libres = [b for b in BARBEROS if barbero_libre(b, inicio, fin, citas, ignorar)]
         if not libres:
-            return (
-                False,
-                "A esa hora ya están todos los barberos ocupados 😕 ¿Te sirve otra hora?",
-                None,
-            )
+            return False, "A esa hora ya están todos los barberos ocupados 😕 ¿Te sirve otra hora?", None
         cita["barbero"] = libres[0]
     else:
         nombres_validos = {normalizar(b): b for b in BARBEROS}
         if normalizar(barbero) not in nombres_validos:
-            return (
-                False,
-                f"No tenemos un barbero llamado {barbero}. Están {', '.join(BARBEROS)}.",
-                None,
-            )
+            return False, f"No tenemos un barbero llamado {barbero}. Están {', '.join(BARBEROS)}.", None
         cita["barbero"] = nombres_validos[normalizar(barbero)]
 
         if not barbero_libre(cita["barbero"], inicio, fin, citas, ignorar):
             texto = f"Uy, {cita['barbero']} ya tiene una cita a esa hora 😕"
-            sugerencias = horas_libres(
-                cita["barbero"], inicio, duracion, citas, ignorar
-            )
+            sugerencias = horas_libres(cita["barbero"], inicio, duracion, citas, ignorar)
             if sugerencias:
                 texto += f" Ese día le quedan libres: {', '.join(sugerencias)}."
-            otros = [
-                b
-                for b in BARBEROS
-                if b != cita["barbero"]
-                and barbero_libre(b, inicio, fin, citas, ignorar)
-            ]
+            otros = [b for b in BARBEROS if b != cita["barbero"]
+                     and barbero_libre(b, inicio, fin, citas, ignorar)]
             if otros:
                 texto += f" A esa misma hora están libres: {', '.join(otros)}."
             return False, texto + " ¿Qué prefieres?", None
@@ -308,20 +266,12 @@ def guardar_cita(cita: dict, chat_id: int) -> str:
     id_cita = cita["id"] or uuid.uuid4().hex[:6].upper()
     fila = [
         datetime.now(ZONA_COLOMBIA).strftime("%Y-%m-%d %H:%M"),
-        cita.get("nombre", ""),
-        cita.get("servicio", ""),
-        cita["barbero"],
-        cita.get("dia", ""),
-        cita.get("hora", ""),
-        str(chat_id),
-        id_cita,
-        ACTIVA,
+        cita.get("nombre", ""), cita.get("servicio", ""), cita["barbero"],
+        cita.get("dia", ""), cita.get("hora", ""), str(chat_id), id_cita, ACTIVA,
     ]
     if cita.get("fila"):
         n = cita["fila"]
-        hoja_citas.update(
-            range_name=f"A{n}:I{n}", values=[fila], value_input_option="RAW"
-        )
+        hoja_citas.update(range_name=f"A{n}:I{n}", values=[fila], value_input_option="RAW")
         return f"actualizada ({id_cita})"
 
     hoja_citas.append_row(fila, value_input_option="RAW")
@@ -342,32 +292,14 @@ def armar_resumen(citas_listas: list[dict]) -> str:
     for c in citas_listas:
         inicio = inicio_y_fin(c)[0]
         fecha = f"{DIAS[inicio.weekday()]} {inicio.day}/{inicio.month} a las {hora_bonita(inicio)}"
-        lineas.append(
-            f"• {acciones[c['accion']]}: {c['servicio']} para {c['nombre']} "
-            f"con {c['barbero']}, el {fecha}"
-        )
+        lineas.append(f"• {acciones[c['accion']]}: {c['servicio']} para {c['nombre']} "
+                      f"con {c['barbero']}, el {fecha}")
     return "Te confirmo:\n" + "\n".join(lineas) + "\n\n¿Confirmas? Responde sí o no 🙂"
 
 
 # ---------- Respuestas sí / no ----------
-AFIRMATIVOS = {
-    "si",
-    "sip",
-    "sii",
-    "dale",
-    "de una",
-    "confirmo",
-    "confirmado",
-    "listo",
-    "ok",
-    "okay",
-    "claro",
-    "perfecto",
-    "hagale",
-    "de acuerdo",
-    "correcto",
-    "va",
-}
+AFIRMATIVOS = {"si", "sip", "sii", "dale", "de una", "confirmo", "confirmado", "listo",
+               "ok", "okay", "claro", "perfecto", "hagale", "de acuerdo", "correcto", "va"}
 NEGATIVOS = {"no", "nop", "nel", "mejor no", "cancelar"}
 
 
@@ -377,9 +309,7 @@ def limpiar(texto: str) -> str:
 
 def es_si(texto: str) -> bool:
     t = limpiar(texto)
-    return t in AFIRMATIVOS or t.startswith(
-        ("si ", "dale", "confirmo", "listo", "claro", "hagale")
-    )
+    return t in AFIRMATIVOS or t.startswith(("si ", "dale", "confirmo", "listo", "claro", "hagale"))
 
 
 def es_no(texto: str) -> bool:
@@ -473,26 +403,20 @@ def armar_instrucciones(mis_citas, nombre_telegram, agenda) -> str:
     texto = INFO_NEGOCIO + f"\nHOY ES: {fecha} (hora de Colombia).\n"
 
     if nombre_telegram:
-        texto += (
-            f"\nEn Telegram, el cliente aparece como '{nombre_telegram}'. "
-            "Si la cita es para él, pregúntale si la dejas a ese nombre "
-            "o a otro.\n"
-        )
+        texto += (f"\nEn Telegram, el cliente aparece como '{nombre_telegram}'. "
+                  "Si la cita es para él, pregúntale si la dejas a ese nombre "
+                  "o a otro.\n")
 
     if mis_citas:
         texto += "\nCITAS ACTIVAS AGENDADAS DESDE ESTE CHAT:\n"
         for c in mis_citas:
-            texto += (
-                f"- ID {c['id']}: {c['nombre']}, {c['servicio']}, "
-                f"con {c['barbero']}, {c['dia']} a las {c['hora']}\n"
-            )
+            texto += (f"- ID {c['id']}: {c['nombre']}, {c['servicio']}, "
+                      f"con {c['barbero']}, {c['dia']} a las {c['hora']}\n")
     else:
         texto += "\nEste cliente no tiene citas activas.\n"
 
     texto += "\nAGENDA OCUPADA (próximos 14 días):\n"
-    texto += (
-        agenda or "No hay citas agendadas, todos los horarios están libres."
-    ) + "\n"
+    texto += (agenda or "No hay citas agendadas, todos los horarios están libres.") + "\n"
     return texto
 
 
@@ -500,6 +424,9 @@ def armar_instrucciones(mis_citas, nombre_telegram, agenda) -> str:
 historiales = {}
 pendientes = {}  # chat_id -> citas validadas esperando el "sí" del cliente
 MAX_MENSAJES = 20
+
+# Detecta "CITA:", "Cita:" o "cita:", con o sin espacios y comillas de código
+PATRON_CITA = re.compile(r"cita\s*:\s*`*\s*(\{.*?\})", re.IGNORECASE | re.DOTALL)
 
 
 def recordar(historial: list, rol: str, texto: str):
@@ -533,9 +460,7 @@ async def preguntar_ia(historial: list, instrucciones: str):
                 return respuesta.text or "Perdón, no entendí. ¿Me lo repites?"
             except Exception as error:
                 mensaje_error = str(error)
-                print(
-                    f"Error con {modelo} (intento {intento + 1}): {mensaje_error[:120]}"
-                )
+                print(f"Error con {modelo} (intento {intento + 1}): {mensaje_error[:120]}")
                 if "429" in mensaje_error or "RESOURCE_EXHAUSTED" in mensaje_error:
                     break
                 await asyncio.sleep(2)
@@ -551,15 +476,10 @@ async def responder(chat_id: int, texto: str, nombre_telegram: str) -> str:
         if es_si(texto):
             recordar(historial, "user", texto)
             try:
-                ok, resultado = await asyncio.to_thread(
-                    confirmar_y_guardar, pendiente, chat_id
-                )
+                ok, resultado = await asyncio.to_thread(confirmar_y_guardar, pendiente, chat_id)
             except Exception as error:
                 print("❌ Error guardando:", error)
-                ok, resultado = (
-                    False,
-                    "Tuve un problema registrando la cita. ¿Lo intentamos de nuevo?",
-                )
+                ok, resultado = False, "Tuve un problema registrando la cita. ¿Lo intentamos de nuevo?"
             if ok:
                 print("✅ Guardado:", resultado)
                 respuesta = "¡Listo! Quedó registrado ✅ ¿Te ayudo con algo más?"
@@ -568,12 +488,9 @@ async def responder(chat_id: int, texto: str, nombre_telegram: str) -> str:
             recordar(historial, "model", respuesta)
             return respuesta
 
-        nota = (
-            "(Nota del sistema: el cliente NO confirmó la solicitud anterior y no se "
-            "registró nada. Pregúntale qué quiere cambiar.)"
-            if es_no(texto)
-            else "(Nota del sistema: la solicitud anterior no se confirmó ni se registró.)"
-        )
+        nota = ("(Nota del sistema: el cliente NO confirmó la solicitud anterior y no se "
+                "registró nada. Pregúntale qué quiere cambiar.)" if es_no(texto) else
+                "(Nota del sistema: la solicitud anterior no se confirmó ni se registró.)")
         texto = f"{texto}\n{nota}"
 
     # 2. Conversación normal con la IA
@@ -585,16 +502,20 @@ async def responder(chat_id: int, texto: str, nombre_telegram: str) -> str:
         citas = []
     mis_citas = [c for c in citas if c["chat_id"] == str(chat_id) and es_activa(c)]
 
-    instrucciones = armar_instrucciones(
-        mis_citas, nombre_telegram, agenda_ocupada(citas, chat_id)
-    )
+    instrucciones = armar_instrucciones(mis_citas, nombre_telegram, agenda_ocupada(citas, chat_id))
     texto_ia = await preguntar_ia(historial, instrucciones)
     if texto_ia is None:
         historial.pop()
         return "Uy, tuve un problema técnico. Intenta de nuevo en un momento 🙏"
 
-    coincidencias = list(re.finditer(r"CITA:\s*(\{.*?\})", texto_ia, re.DOTALL))
+    coincidencias = list(PATRON_CITA.finditer(texto_ia))
     if not coincidencias:
+        # Parece una línea CITA mal escrita: nunca se la mostramos al cliente
+        if '"accion"' in texto_ia:
+            print("⚠️ Línea CITA con formato raro:", texto_ia)
+            aviso = "Uy, se me enredó algo por acá 😅 ¿Me repites qué necesitas?"
+            recordar(historial, "model", aviso)
+            return aviso
         recordar(historial, "model", texto_ia)
         return texto_ia
 
@@ -607,16 +528,10 @@ async def responder(chat_id: int, texto: str, nombre_telegram: str) -> str:
             print("❌ JSON inválido:", error)
 
     try:
-        ok, error, listas = await asyncio.to_thread(
-            preparar_citas, citas_pedidas, chat_id
-        )
+        ok, error, listas = await asyncio.to_thread(preparar_citas, citas_pedidas, chat_id)
     except Exception as e:
         print("❌ Error validando:", e)
-        ok, error, listas = (
-            False,
-            "Tuve un problema revisando la agenda. ¿Lo intentamos de nuevo?",
-            None,
-        )
+        ok, error, listas = False, "Tuve un problema revisando la agenda. ¿Lo intentamos de nuevo?", None
 
     if not ok:
         print("⚠️ Cita rechazada:", error)
